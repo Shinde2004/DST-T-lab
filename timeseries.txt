@@ -1,0 +1,124 @@
+a. Import time series in python
+
+import pandas as pd
+
+# Load the time series dataset
+url = 'https://raw.githubusercontent.com/selva86/datasets/master/a10.csv'
+df = pd.read_csv(url)
+
+# Display the first few rows of the dataset
+print(df.tail(15))
+
+b. Visualizing time series
+import matplotlib.pyplot as plt
+
+# Convert 'date' column to datetime
+df['date'] = pd.to_datetime(df['date'])
+
+# Plotting the time series
+plt.figure(figsize=(10,6))
+plt.plot(df['date'], df['value'])
+plt.title('Time Series')
+plt.xlabel('Date')
+plt.ylabel('Value')
+plt.show()
+
+c. Seasonal plot on time series
+import seaborn as sns
+
+# Set the date column as the index
+df.set_index('date', inplace=True)
+
+# Plot the seasonal effect (Monthly)
+sns.boxplot(x=df.index.month, y=df['value'])
+plt.title('Seasonal Plot (Month-wise)')
+plt.show()
+
+d. Boxplot of Month-wise (Seasonal) and Year-wise (trend) Distribution
+# Month-wise Boxplot
+plt.figure(figsize=(10, 6))
+sns.boxplot(x=df.index.month, y=df['value'])
+plt.title('Month-wise Boxplot (Seasonality)')
+plt.show()
+
+# Year-wise Boxplot
+df['year'] = df.index.year
+plt.figure(figsize=(10, 6))
+sns.boxplot(x=df['year'], y=df['value'])
+plt.title('Year-wise Boxplot (Trend)')
+plt.show()
+
+e. Patterns in time series
+from statsmodels.tsa.seasonal import seasonal_decompose
+
+# Decompose the time series
+result = seasonal_decompose(df['value'], model='additive', period=12)
+
+# Plot decomposition
+result.plot()
+plt.show()
+
+f. Perform additive and multiplicative time series
+# Additive Decomposition
+result_add = seasonal_decompose(df['value'], model='additive', period=12)
+result_add.plot()
+plt.show()
+
+# Multiplicative Decomposition
+result_mul = seasonal_decompose(df['value'], model='multiplicative', period=12)
+result_mul.plot()
+plt.show()
+
+g. Decompose a Time Series into Its Components
+
+This was already covered under point (f) where we decomposed the time series using seasonal_decompose method.
+
+h. Identify whether the time series is stationary or non- stationary
+
+from statsmodels.tsa.stattools import adfuller
+
+# Perform Augmented Dickey-Fuller test
+adf_test = adfuller(df['value'])
+print(f'ADF Statistic: {adf_test[0]}')
+print(f'p-value: {adf_test[1]}')
+
+if adf_test[1] < 0.05:
+    print("The time series is stationary.")
+else:
+    print("The time series is non-stationary.")
+
+i. Make a non-stationary series stationary
+# Difference the data to make it stationary
+df['diff'] = df['value'].diff()
+
+# Plot the differenced series
+plt.plot(df['diff'])
+plt.title('Differenced Time Series')
+plt.show()
+
+j. Detrend a time series
+# Detrending using the difference method
+df['detrended'] = df['value'] - result.trend
+
+# Plotting the detrended time series
+plt.plot(df['detrended'])
+plt.title('Detrended Time Series')
+plt.show()
+
+k. Deseasonalize a time series
+# Deseasonalizing the time series
+df['deseasonalized'] = df['value'] - result.seasonal
+
+# Plotting the deseasonalized time series
+plt.plot(df['deseasonalized'])
+plt.title('Deseasonalized Time Series')
+plt.show()
+
+l. test for seasonality of a time series
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+
+# Plot the ACF (AutoCorrelation Function) and PACF (Partial AutoCorrelation Function)
+plt.figure(figsize=(12, 6))
+plot_acf(df['value'], lags=50)
+plt.title('ACF (Seasonality Test)')
+plt.show()

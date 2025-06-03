@@ -1,0 +1,164 @@
+!apt-get update
+!apt-get install openjdk-11-jdk-y
+!pip install pyspark
+
+
+
+1.from pyspark.sql import SparkSession
+
+# Create Spark session
+spark = SparkSession.builder \
+    .appName("NASA Web Logs Analysis") \
+    .getOrCreate()
+
+# Print Spark version
+print(f"Spark Version: {spark.version}")
+
+# Stop the Spark session (optional, but good practice)
+# spark.stop()
+
+
+
+
+2.from google.colab import files
+from pyspark.sql import SparkSession
+
+# Create Spark session (if not already created)
+spark = SparkSession.builder \
+    .appName("NASA Web Logs Analysis") \
+    .getOrCreate()
+
+# Upload file
+uploaded = files.upload()
+
+# Extract the file name
+log_file_path = list(uploaded.keys())[0]
+
+# Now read the file with Spark
+raw_data = spark.read.text(f"/content/{log_file_path}")
+
+# Show the first 5 lines (without truncation)
+raw_data.show(5, truncate=False)
+
+
+
+
+3.from pyspark.sql.functions import regexp_extract
+from pyspark.sql.types import IntegerType
+from pyspark.sql import SparkSession
+
+# Assuming 'spark' session is already created. If not:
+spark = SparkSession.builder.appName("LogParsing").getOrCreate()
+
+# Assuming raw_data is already loaded. If not:
+# raw_data = spark.read.text("/path/to/your/log/file.txt")
+
+# Regular expressions for parsing
+host_pattern = r'(\S+)'  # Extracts host (any sequence of non-whitespace characters)
+timestamp_pattern = r'\[(.*?)\]'  # Extracts timestamp
+method_endpoint_pattern = r'(GET|POST|HEAD|PUT|DELETE)\s+(\S+)\s'  # Extracts HTTP method and endpoint
+status_pattern = r'(\d{3})'  # Extracts status code
+content_size_pattern = r'(\d+)$'  # Extracts content size
+
+# Parse data into structured columns
+logs_df = raw_data.withColumn("host", regexp_extract("value", host_pattern, 1)) \
+    .withColumn("timestamp", regexp_extract("value", timestamp_pattern, 1)) \
+    .withColumn("method", regexp_extract("value", method_endpoint_pattern, 1)) \
+    .withColumn("endpoint", regexp_extract("value", method_endpoint_pattern, 2)) \
+    .withColumn("status", regexp_extract("value", status_pattern, 1).cast(IntegerType())) \
+    .withColumn("content_size", regexp_extract("value", content_size_pattern, 1).cast(IntegerType()))
+
+logs_df.show(5, truncate=False) #added truncate=false for better viewing of the data.
+
+
+
+# a.Compute statistics regarding the average, minimum, and maximum content sizes. 
+logs_df.selectExpr(
+    "AVG(content_size) as avg_size",
+    "MIN(content_size) as min_size",
+    "MAX(content_size) as max_size"
+).show()
+
+
+# b.Perform HTTP status code analysis to see which status code values appear and how many times
+logs_df.groupby("status").count().orderBy("status").show()
+
+
+#c  Analysing frequent hosts by getting the total count of accesses by each host, sorting by the number of accesses, and displaying only the top 10 most frequent hosts 
+from pyspark.sql.functions import desc
+
+logs_df.groupBy("host").count().orderBy(desc("count")).limit(10).show()
+
+
+
+#d Display the top 20 most frequent endpoints 
+logs_df.groupBy("endpoint").count().orderBy(desc("count")).limit(20).show()
+
+
+#e  Display the top 10 error endpoints 
+logs_df.filter("status >= 400").groupBy("endpoint").count().orderBy(desc("count")).limit(10).show()
+
+
+#f How many unique hosts visited the website in two month 
+unique_hosts = logs_df.count()
+print(f"Unique hosts: {unique_hosts}")
+
+
+#g Find the average number of requests made per host to the website per day 
+total_requests = logs_df.count()
+avg_requests_per_host = total_requests / unique_hosts
+print(f"Average requests per host: {avg_requests_per_host}")
+
+
+#h Listing the top twenty 404 response code endpoints 
+logs_df.filter("status == 404").groupby("endpoint").count().orderBy(desc("count")).limit(20).show()
+
+
+#i list of the top twenty hosts that generate the most 404 errors 
+logs_df.filter("status == 404").groupby("host").count().orderBy(desc("count")).limit(20).show()
+
+
+#j Visualizing 404 errors per day 
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+
+
+daily_404_pd.plot(x="date", y="count", kind="line", title="404 Errors Per Day", legend=False)
+plt.xlabel("Date")
+plt.ylabel("Number of 404 Errors")
+
+import matplotlib.ticker as ticker
+ax = plt.gca()
+ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
+plt.xticks(rotation=45)
+
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+
+#k top three days of the month with the most 404 errors
+from pyspark.sql.functions import to_date, desc
+
+logs_df.filter("status = 404") \
+    .withColumn("date", to_date("timestamp", "dd/MMM/yyyy")) \
+    .groupBy("date").count() \
+    .orderBy(desc("count")) \
+    .limit(3) \
+    .show()
+
+
+
+#l Visualizing hourly 404 errors 
+from pyspark.sql.functions import hour, col
+import matplotlib.pyplot as plt
+
+hourly_404_df = logs_df.filter("status = 404") \
+    .withColumn("hour", hour("timestamp")) \
+    .groupBy("hour").count().toPandas()
+
+hourly_404_df.plot(x="hour", y="count", kind="bar", title="Hourly 404 Errors")
+plt.show()
+
+
